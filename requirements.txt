@@ -3,3 +3,4 @@ torch
 fastapi
 numpy
 safetensors
+uvicorn

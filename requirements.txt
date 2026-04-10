@@ -1,0 +1,5 @@
+joblib==1.4.0
+torch
+fastapi
+numpy
+safetensors

@@ -1,0 +1,10 @@
+services:
+  app:
+    restart: always
+    container_name: battery-ml
+    hostname: battery-ml
+    build: .
+    ports:
+      - 8000:8000
+    volumes:
+      - ./app:/code/app

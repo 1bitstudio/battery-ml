@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from app.layers.Transformer_EncDec import Encoder, EncoderLayer
-from app.layers.SelfAttention_Family import FullAttention, AttentionLayer
-from app.layers.Embed import PositionalEmbedding
+from layers.Transformer_EncDec import Encoder, EncoderLayer
+from layers.SelfAttention_Family import FullAttention, AttentionLayer
+from layers.Embed import PositionalEmbedding
 
 
 class MLPBlock(nn.Module):

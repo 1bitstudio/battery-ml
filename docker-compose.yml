@@ -8,3 +8,10 @@ services:
       - 8000:8000
     volumes:
       - ./app:/code/app
+    networks:
+      - battery_network
+
+networks:
+  battery_network:
+    external: true
+    name: battery_network

@@ -3,4 +3,4 @@ torch
 fastapi
 numpy
 safetensors
-uvicorn
+aiokafka

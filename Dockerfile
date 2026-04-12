@@ -1,11 +1,14 @@
-FROM python:3.10
+FROM python:3.10-slim
 
 WORKDIR /code
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY ./requirements.txt /code/requirements.txt
 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
-RUN pip install fastapi uvicorn
 COPY ./app /code/app
 
-CMD ["uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8000",  "--log-level", "debug", "--reload"]
+CMD ["python", "app/ml_worker.py"]

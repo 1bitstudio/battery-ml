@@ -251,7 +251,7 @@ async def main():
                 data_dict = request.battery_input_data.model_dump()
                 result = predict(
                     data_dict,
-                    request.obs_cycles
+                    request.battery_input_data.obs_cycles
                 )
 
                 response = {

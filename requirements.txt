@@ -5,3 +5,4 @@ safetensors
 aiokafka
 reformer-pytorch
 scikit_learn
+pydantic

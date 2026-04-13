@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 def to_camel(s: str) -> str:
     special = {
@@ -68,7 +68,7 @@ class BatteryData(CamelModel):
     nominal_capacity_in_Ah: float
     cycle_data: List[Cycle]
     obs_cycles: int
-    soc_interval: List[float]
+    soc_interval: List[float] = Field(alias="SOCInterval")
 
 
 class RequestModel(CamelModel):

@@ -14,7 +14,7 @@ from safetensors.torch import load_file
 from models import SOHLinear, SOHTransformer
 
 
-KAFKA_BOOTSTRAP = "kafka:29092"
+KAFKA_BOOTSTRAP = "kafka:9092"
 REQUEST_TOPIC = "data"
 RESPONSE_TOPIC = "soh_responses"
 GROUP_ID = "soh-ml-worker"

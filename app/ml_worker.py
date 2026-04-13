@@ -27,6 +27,56 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+from pydantic import BaseModel, ConfigDict
+
+def to_camel(s: str) -> str:
+    special = {
+        "ah": "Ah",
+        "v": "V",
+        "a": "A",
+        "soc": "SOC"
+    }
+
+    parts = s.split("_")
+
+    result = parts[0]
+
+    for p in parts[1:]:
+        if p in special:
+            result += special[p]
+        else:
+            result += p.capitalize()
+
+    return result
+
+class CamelModel(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True
+    )
+
+from typing import List
+
+class Cycle(CamelModel):
+    voltage_in_V: List[float]
+    current_in_A: List[float]
+    charge_capacity_in_Ah: List[float]
+    discharge_capacity_in_Ah: List[float]
+
+
+class BatteryData(CamelModel):
+    nominal_capacity_in_Ah: float
+    cycle_data: List[Cycle]
+    soc_interval: List[float]
+
+
+class RequestModel(CamelModel):
+    request_id: str
+    battery_input_data: BatteryData
+    obs_cycles: int
+
+
+
 # ---------------------------------------------------------------
 # MODEL
 # ---------------------------------------------------------------
@@ -192,14 +242,15 @@ async def main():
 
     try:
         async for msg in consumer:
-            request = msg.value
+            raw = msg.value
+            request = RequestModel(**raw)
 
             request_id = request.get("request_id", str(uuid.uuid4()))
 
             try:
                 result = predict(
-                    request["data"],
-                    request["obs_cycles"]
+                    request.battery_input_data,
+                    request.obs_cycles
                 )
 
                 response = {
@@ -207,6 +258,8 @@ async def main():
                     "status": "ok",
                     "result": result
                 }
+                
+
 
             except Exception as e:
                 response = {
@@ -215,6 +268,7 @@ async def main():
                     "error": str(e)
                 }
 
+            response = RequestModel(**response).model_dump(by_alias=True)
             await producer.send_and_wait(RESPONSE_TOPIC, response)
 
     finally:

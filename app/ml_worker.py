@@ -10,6 +10,8 @@ import joblib
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from safetensors.torch import load_file
+import logging
+
 
 from models import SOHLinear, SOHTransformer
 
@@ -20,6 +22,10 @@ RESPONSE_TOPIC = "soh_responses"
 GROUP_ID = "soh-ml-worker"
 
 CKPT_PATH = "./app/checkpoints_soh/SOH_SOHTransformer_dCALCE_ph100_dm64_df128_el2_dl1_lr0.0001_bs32_s2021"
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------
 # MODEL
@@ -182,7 +188,7 @@ async def main():
     await consumer.start()
     await producer.start()
 
-    print("🚀 ML worker started...")
+    logger.info("🚀 ML worker started...")
 
     try:
         async for msg in consumer:

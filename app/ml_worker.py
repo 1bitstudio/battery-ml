@@ -211,9 +211,9 @@ def predict(data, obs_cycles):
     pred_soh = pred_scaled * std + mean
 
     return {
-        "predicted_soh": float(pred_soh),
-        "predicted_soh_percent": float(pred_soh * 100),
-        "target_cycle": int(obs_cycles + args.pred_horizon),
+        "predictedSoh": float(pred_soh),
+        "predictedSohPercent": float(pred_soh * 100),
+        "targetCycle": int(obs_cycles + args.pred_horizon),
     }
 
 
@@ -255,21 +255,24 @@ async def main():
                 )
 
                 response = {
-                    "request_id": request_id,
+                    "requestId": request_id,
                     "status": "ok",
                     "result": result
                 }
-                
-
+                logger.info("Predicted result: ")
+                logger.info(result)
 
             except Exception as e:
                 response = {
-                    "request_id": request_id,
+                    "requestId": request_id,
                     "status": "error",
                     "error": str(e)
                 }
+                logger.info("Error: ")
+                logger.info(str(e))
 
-            response = RequestModel(**response).model_dump(by_alias=True)
+            # response = RequestModel(**response).model_dump(by_alias=True)
+
             await producer.send_and_wait(RESPONSE_TOPIC, response)
 
     finally:

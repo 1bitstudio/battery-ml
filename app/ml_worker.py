@@ -245,12 +245,12 @@ async def main():
             raw = msg.value
             request = RequestModel(**raw)
 
-            request_id = request.get("request_id", 0)
+            request_id = request.request_id
 
             try:
                 data_dict = request.battery_input_data.model_dump()
                 result = predict(
-                    request.battery_input_data,
+                    data_dict,
                     request.obs_cycles
                 )
 

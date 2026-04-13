@@ -38,7 +38,6 @@ def to_camel(s: str) -> str:
     }
 
     parts = s.split("_")
-
     result = parts[0]
 
     for p in parts[1:]:
@@ -48,6 +47,7 @@ def to_camel(s: str) -> str:
             result += p.capitalize()
 
     return result
+
 
 class CamelModel(BaseModel):
     model_config = ConfigDict(
@@ -67,13 +67,13 @@ class Cycle(CamelModel):
 class BatteryData(CamelModel):
     nominal_capacity_in_Ah: float
     cycle_data: List[Cycle]
+    obs_cycles: int
     soc_interval: List[float]
 
 
 class RequestModel(CamelModel):
     request_id: int
     battery_input_data: BatteryData
-    obs_cycles: int
 
 
 
@@ -248,6 +248,7 @@ async def main():
             request_id = request.get("request_id", 0)
 
             try:
+                data_dict = request.battery_input_data.model_dump()
                 result = predict(
                     request.battery_input_data,
                     request.obs_cycles

@@ -19,7 +19,7 @@ from models import SOHLinear, SOHTransformer
 KAFKA_BOOTSTRAP = "kafka:9092"
 REQUEST_TOPIC = "data"
 RESPONSE_TOPIC = "soh_responses"
-GROUP_ID = "soh-ml-worker"
+GROUP_ID = "battery-ml-worker"
 
 CKPT_PATH = "./app/checkpoints_soh/SOH_SOHTransformer_dCALCE_ph100_dm64_df128_el2_dl1_lr0.0001_bs32_s2021"
 
@@ -71,7 +71,7 @@ class BatteryData(CamelModel):
 
 
 class RequestModel(CamelModel):
-    request_id: str
+    request_id: int
     battery_input_data: BatteryData
     obs_cycles: int
 
@@ -245,7 +245,7 @@ async def main():
             raw = msg.value
             request = RequestModel(**raw)
 
-            request_id = request.get("request_id", str(uuid.uuid4()))
+            request_id = request.get("request_id", 0)
 
             try:
                 result = predict(

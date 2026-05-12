@@ -192,6 +192,29 @@ def restore_prediction(prediction: float, scaler: Any | None) -> float:
     return float(prediction)
 
 
+def decode_kafka_message(raw_value: bytes) -> dict[str, Any] | None:
+    if raw_value is None:
+        logger.warning("Kafka message skipped: empty value")
+        return None
+
+    text = raw_value.decode("utf-8", errors="replace").strip()
+    if not text:
+        logger.warning("Kafka message skipped: blank value")
+        return None
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        logger.warning("Kafka message skipped: invalid JSON: %s", text[:300])
+        return None
+
+    if not isinstance(payload, dict):
+        logger.warning("Kafka message skipped: JSON root is not an object")
+        return None
+
+    return payload
+
+
 @lru_cache(maxsize=None)
 def load_model_bundle(base_path: str) -> ModelBundle:
     checkpoint_path = resolve_checkpoint_path(base_path)
@@ -515,7 +538,6 @@ async def run_worker(
         group_id=config.group_id,
         auto_offset_reset="earliest",
         enable_auto_commit=True,
-        value_deserializer=lambda value: json.loads(value.decode("utf-8")),
     )
     producer = AIOKafkaProducer(
         bootstrap_servers=config.kafka_bootstrap,
@@ -535,7 +557,9 @@ async def run_worker(
 
     try:
         async for message in consumer:
-            raw = message.value
+            raw = decode_kafka_message(message.value)
+            if raw is None:
+                continue
             request_id = raw.get("requestId") if isinstance(raw, dict) else None
 
             try:

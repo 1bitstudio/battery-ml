@@ -1,0 +1,23 @@
+services:
+  battery-ml-rul:
+    restart: always
+    container_name: battery-ml-rul
+    hostname: battery-ml-rul
+    build:
+      context: .
+      dockerfile: Dockerfile.rul
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      REQUEST_TOPIC: rul_requests
+      RESPONSE_TOPIC: rul_responses
+      GROUP_ID: battery-ml-rul-worker
+      CHECKPOINT_PATH: /code/app/checkpoints_rul
+    volumes:
+      - ./app:/code/app
+    networks:
+      - battery_network
+
+networks:
+  battery_network:
+    external: true
+    name: code_battery_network

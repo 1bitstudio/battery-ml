@@ -1,0 +1,23 @@
+services:
+  battery-ml-soh:
+    restart: always
+    container_name: battery-ml-soh
+    hostname: battery-ml-soh
+    build:
+      context: .
+      dockerfile: Dockerfile.soh
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      REQUEST_TOPIC: data
+      RESPONSE_TOPIC: soh_responses
+      GROUP_ID: battery-ml-soh-worker
+      CHECKPOINT_PATH: /code/app/checkpoints_soh
+    volumes:
+      - ./app:/code/app
+    networks:
+      - battery_network
+
+networks:
+  battery_network:
+    external: true
+    name: code_battery_network

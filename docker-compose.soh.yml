@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile.soh
     environment:
       KAFKA_BOOTSTRAP: kafka:9092
-      REQUEST_TOPIC: data
+      REQUEST_TOPIC: soh-data
       RESPONSE_TOPIC: soh_responses
       GROUP_ID: battery-ml-soh-worker
       CHECKPOINT_PATH: /code/app/checkpoints_soh

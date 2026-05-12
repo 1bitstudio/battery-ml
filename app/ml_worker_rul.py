@@ -33,7 +33,7 @@ def build_error_response(request_id, error: Exception) -> dict:
 def main() -> None:
     config = build_worker_config(
         service_name="rul",
-        default_request_topic="rul_requests",
+        default_request_topic="rul-data",
         default_response_topic="rul_responses",
         default_group_id="battery-ml-rul-worker",
         default_checkpoint_path=DEFAULT_CHECKPOINT_PATH,

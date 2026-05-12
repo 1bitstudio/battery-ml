@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile.rul
     environment:
       KAFKA_BOOTSTRAP: kafka:9092
-      REQUEST_TOPIC: rul_requests
+      REQUEST_TOPIC: rul-data
       RESPONSE_TOPIC: rul_responses
       GROUP_ID: battery-ml-rul-worker
       CHECKPOINT_PATH: /code/app/checkpoints_rul

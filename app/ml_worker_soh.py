@@ -43,7 +43,7 @@ def build_error_response(request_id, error: Exception) -> dict:
 def main() -> None:
     config = build_worker_config(
         service_name="soh",
-        default_request_topic="data",
+        default_request_topic="soh-data",
         default_response_topic="soh_responses",
         default_group_id="battery-ml-soh-worker",
         default_checkpoint_path=DEFAULT_CHECKPOINT_PATH,

@@ -14,7 +14,7 @@ import joblib
 import numpy as np
 import torch
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from safetensors.torch import load_file
 
 
@@ -62,9 +62,20 @@ class BatteryData(CamelModel):
     cycle_data: list[Cycle]
     obs_cycles: int
     form_factor: str | None = None
-    anode_composition: str | None = None
-    cathode_composition: str | None = None
-    electrolyte_composition: str | None = None
+    anode_composition: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("anodeComposition", "anodeMaterial"),
+    )
+    cathode_composition: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("cathodeComposition", "cathodeMaterial"),
+    )
+    electrolyte_composition: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("electrolyteComposition", "electrolyteMaterial"),
+    )
+    charge_protocol: str | None = None
+    discharge_protocol: str | None = None
     soc_interval: list[float] = Field(
         default_factory=lambda: [0.0, 1.0],
         alias="SOCInterval",
@@ -293,6 +304,165 @@ def validate_battery_data(battery_data: BatteryData, args: Any) -> None:
         )
 
 
+def safe_array(values: list[float] | None) -> np.ndarray:
+    if not values:
+        return np.array([], dtype=np.float32)
+    return np.asarray(values, dtype=np.float32)
+
+
+def summarize_series(values: list[float] | None) -> list[float]:
+    array = safe_array(values)
+    if array.size == 0:
+        return [0.0] * 9
+
+    first = float(array[0])
+    last = float(array[-1])
+    minimum = float(np.min(array))
+    maximum = float(np.max(array))
+    mean = float(np.mean(array))
+    std = float(np.std(array))
+    delta = last - first
+    spread = maximum - minimum
+    sample_count = float(array.size)
+
+    return [mean, std, minimum, maximum, first, last, delta, spread, sample_count]
+
+
+def build_temperature_features(battery_data: BatteryData, args: Any) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+    if not getattr(args, "use_temperature", False):
+        return None, None
+
+    summary_dim = int(getattr(args, "temperature_summary_dim", 18))
+    features = []
+    mask = []
+
+    for index in range(args.early_cycle_threshold):
+        if index >= len(battery_data.cycle_data):
+            features.append([0.0] * summary_dim)
+            mask.append(0.0)
+            continue
+
+        cycle = battery_data.cycle_data[index]
+        vector = summarize_series(cycle.temperature_in_c) + summarize_series(
+            cycle.internal_resistance_in_ohm
+        )
+        if len(vector) < summary_dim:
+            vector.extend([0.0] * (summary_dim - len(vector)))
+        else:
+            vector = vector[:summary_dim]
+
+        has_temperature = bool(cycle.temperature_in_c) or bool(cycle.internal_resistance_in_ohm)
+        features.append(vector)
+        mask.append(1.0 if has_temperature else 0.0)
+
+    feature_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+    mask_tensor = torch.tensor(mask, dtype=torch.float32).unsqueeze(0)
+    return feature_tensor, mask_tensor
+
+
+def get_soc_bounds(battery_data: BatteryData) -> tuple[float, float]:
+    if len(battery_data.soc_interval) >= 2:
+        start = float(battery_data.soc_interval[0])
+        end = float(battery_data.soc_interval[1])
+        return start, end
+    return 0.0, 1.0
+
+
+def get_voltage_limits(battery_data: BatteryData) -> tuple[float, float]:
+    observed_cycles = battery_data.cycle_data[:battery_data.obs_cycles]
+    values: list[float] = []
+    for cycle in observed_cycles:
+        values.extend(cycle.voltage_in_v)
+
+    if not values:
+        return 0.0, 0.0
+
+    return float(min(values)), float(max(values))
+
+
+def get_numeric_feature_value(battery_data: BatteryData, key: str) -> float:
+    soc_start, soc_end = get_soc_bounds(battery_data)
+    min_voltage, max_voltage = get_voltage_limits(battery_data)
+    soc_span = soc_end - soc_start
+
+    numeric_map = {
+        "nominal_capacity_in_Ah": float(battery_data.nominal_capacity_in_ah),
+        "depth_of_charge": float(max(soc_span, 0.0)),
+        "depth_of_discharge": float(max(soc_span, 0.0)),
+        "max_voltage_limit_in_V": float(max_voltage),
+        "min_voltage_limit_in_V": float(min_voltage),
+        "soc_start": float(soc_start),
+        "soc_end": float(soc_end),
+        "soc_interval": float(soc_span),
+    }
+    return numeric_map.get(key, 0.0)
+
+
+def normalize_form_factor(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    normalized = value.strip().lower()
+    mapping = {
+        "18650": "cylindrical_18650",
+        "cylindrical": "cylindrical_18650",
+        "cylindrical_18650": "cylindrical_18650",
+        "prismatic": "prismatic",
+        "pouch": "pouch",
+        "coin": "coin",
+    }
+    return mapping.get(normalized, value)
+
+
+def get_categorical_feature_value(battery_data: BatteryData, key: str) -> str | None:
+    categorical_map = {
+        "form_factor": normalize_form_factor(battery_data.form_factor),
+        "anode_material": battery_data.anode_composition,
+        "cathode_material": battery_data.cathode_composition,
+        "electrolyte_material": battery_data.electrolyte_composition,
+        "charge_protocol": battery_data.charge_protocol,
+        "discharge_protocol": battery_data.discharge_protocol,
+    }
+    return categorical_map.get(key)
+
+
+def encode_categorical_value(args: Any, key: str, raw_value: str | None) -> int:
+    value_to_id = getattr(args, "metadata_value_to_id", {}).get(key, {})
+    if raw_value is None:
+        return int(value_to_id.get("__MISSING__", 1))
+    if raw_value in value_to_id:
+        return int(value_to_id[raw_value])
+    return int(value_to_id.get("__UNK__", 0))
+
+
+def build_metadata_tensors(battery_data: BatteryData, args: Any) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+    if not getattr(args, "use_metadata", False):
+        return None, None
+
+    numeric_keys = list(getattr(args, "metadata_numeric_keys", []))
+    categorical_keys = list(getattr(args, "metadata_categorical_keys", []))
+
+    numeric_tensor = None
+    categorical_tensor = None
+
+    if numeric_keys:
+        numeric_values = [get_numeric_feature_value(battery_data, key) for key in numeric_keys]
+        numeric_tensor = torch.tensor([numeric_values], dtype=torch.float32)
+
+    if categorical_keys:
+        categorical_values = [
+            encode_categorical_value(
+                args,
+                key,
+                get_categorical_feature_value(battery_data, key),
+            )
+            for key in categorical_keys
+        ]
+        categorical_tensor = torch.tensor([categorical_values], dtype=torch.long)
+
+    return numeric_tensor, categorical_tensor
+
+
 def predict_scalar(bundle: ModelBundle, battery_data: BatteryData) -> float:
     validate_battery_data(battery_data, bundle.args)
 
@@ -307,12 +477,25 @@ def predict_scalar(bundle: ModelBundle, battery_data: BatteryData) -> float:
 
     curves_tensor = torch.tensor(curves, dtype=torch.float32).unsqueeze(0)
     mask_tensor = torch.tensor(mask, dtype=torch.float32).unsqueeze(0)
+    temperature_features, temperature_mask = build_temperature_features(
+        battery_data, bundle.args
+    )
+    static_numeric, static_categorical = build_metadata_tensors(
+        battery_data, bundle.args
+    )
 
     expanded_mask = mask_tensor.unsqueeze(-1).unsqueeze(-1) * torch.ones_like(curves_tensor)
     curves_tensor[expanded_mask == 0] = 0
 
     with torch.no_grad():
-        output = bundle.model(curves_tensor, mask_tensor)
+        output = bundle.model(
+            curves_tensor,
+            mask_tensor,
+            temperature_features=temperature_features,
+            temperature_mask=temperature_mask,
+            static_numeric=static_numeric,
+            static_categorical=static_categorical,
+        )
 
     return restore_prediction(output.squeeze().item(), bundle.scaler)
 

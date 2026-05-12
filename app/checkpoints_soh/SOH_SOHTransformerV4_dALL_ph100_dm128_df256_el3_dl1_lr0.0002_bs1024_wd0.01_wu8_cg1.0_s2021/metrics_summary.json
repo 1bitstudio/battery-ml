@@ -1,0 +1,25 @@
+{
+  "model": "SOHTransformerV4",
+  "dataset": "ALL",
+  "split_config_path": null,
+  "experiment_tag": "",
+  "seed": 2021,
+  "timestamp": "2026-05-06 19:34:56",
+  "best_val": {
+    "mse": 0.0018995446878411909,
+    "rmse": 0.04358376633382194,
+    "mae": 0.02077985786239674,
+    "mape": 0.022278007204691478,
+    "score": 0.02267940255023793,
+    "loss": 0.022679402959968523
+  },
+  "best_test": {
+    "mse": 0.0021279974561520015,
+    "rmse": 0.04613022280622544,
+    "mae": 0.022442065838822123,
+    "mape": 0.024574229844852635,
+    "score": 0.024570063294974125,
+    "loss": 0.02457006460984316
+  },
+  "checkpoint_path": "./checkpoints_soh/SOH_SOHTransformerV4_dALL_ph100_dm128_df256_el3_dl1_lr0.0002_bs1024_wd0.01_wu8_cg1.0_s2021"
+}

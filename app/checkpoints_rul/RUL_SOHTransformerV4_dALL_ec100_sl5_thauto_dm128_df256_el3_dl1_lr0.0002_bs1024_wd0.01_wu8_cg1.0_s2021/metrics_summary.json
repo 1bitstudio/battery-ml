@@ -1,0 +1,23 @@
+{
+  "model": "SOHTransformerV4",
+  "dataset": "ALL",
+  "split_config_path": null,
+  "experiment_tag": "",
+  "seed": 2021,
+  "timestamp": "2026-05-08 14:13:26",
+  "best_val": {
+    "mse": 145637.51428091398,
+    "rmse": 381.62483446562277,
+    "mae": 202.03828588779683,
+    "score": 583.6631203534196,
+    "loss": 145839.55478025594
+  },
+  "best_test": {
+    "mse": 116419.04909283425,
+    "rmse": 341.20235798252367,
+    "mae": 193.49845528515266,
+    "score": 534.7008132676763,
+    "loss": 116612.54544592777
+  },
+  "checkpoint_path": "./checkpoints_rul/RUL_SOHTransformerV4_dALL_ec100_sl5_thauto_dm128_df256_el3_dl1_lr0.0002_bs1024_wd0.01_wu8_cg1.0_s2021"
+}

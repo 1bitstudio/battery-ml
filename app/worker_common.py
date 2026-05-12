@@ -192,6 +192,17 @@ def restore_prediction(prediction: float, scaler: Any | None) -> float:
     return float(prediction)
 
 
+def payload_to_log(payload: Any, limit: int = 2000) -> str:
+    try:
+        text = json.dumps(payload, ensure_ascii=False, default=str)
+    except TypeError:
+        text = str(payload)
+
+    if len(text) > limit:
+        return text[:limit] + "...[truncated]"
+    return text
+
+
 def decode_kafka_message(raw_value: bytes) -> dict[str, Any] | None:
     if raw_value is None:
         logger.warning("Kafka message skipped: empty value")
@@ -559,8 +570,24 @@ async def run_worker(
         async for message in consumer:
             raw = decode_kafka_message(message.value)
             if raw is None:
+                logger.warning(
+                    "%s skipped message from topic=%s partition=%s offset=%s",
+                    config.service_name,
+                    message.topic,
+                    message.partition,
+                    message.offset,
+                )
                 continue
             request_id = raw.get("requestId") if isinstance(raw, dict) else None
+            logger.info(
+                "%s received message from topic=%s partition=%s offset=%s requestId=%s payload=%s",
+                config.service_name,
+                message.topic,
+                message.partition,
+                message.offset,
+                request_id,
+                payload_to_log(raw),
+            )
 
             try:
                 request = request_model.model_validate(raw)
@@ -571,6 +598,13 @@ async def run_worker(
                 response = error_handler(request_id, exc)
                 logger.exception("%s requestId=%s failed", config.service_name, request_id)
 
+            logger.info(
+                "%s sending message to topic=%s requestId=%s payload=%s",
+                config.service_name,
+                config.response_topic,
+                request_id,
+                payload_to_log(response),
+            )
             await producer.send_and_wait(config.response_topic, response)
     finally:
         await consumer.stop()

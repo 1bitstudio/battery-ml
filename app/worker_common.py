@@ -577,6 +577,7 @@ async def run_worker(
                     message.partition,
                     message.offset,
                 )
+                logger.warning("Received message: %s", raw)
                 continue
             request_id = raw.get("requestId") if isinstance(raw, dict) else None
             logger.info(
